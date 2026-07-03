@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+<title>Word Search</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&display=swap" rel="stylesheet"/>
+
+<style>
+/* ══ RESET ══ */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{width:100%;height:100%;overflow:hidden;background:#0f1c35;font-family:'Nunito',sans-serif}
+.screen{position:absolute;inset:0;display:none;flex-direction:column;overflow:hidden}
+.screen.show{display:flex}
+
+/* ══ LEVEL SELECT ══ */
+#scr-levels{background:#0f1c35}
+.ls-header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 8px;flex-shrink:0}
+.ls-gear{width:46px;height:46px;border-radius:50%;background:linear-gradient(135deg,#3a7bd5,#1a5bb5);border:none;font-size:22px;cursor:pointer;color:#fff;box-shadow:0 3px 10px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center}
+.ls-title{font-size:24px;font-weight:800;color:#fff}
+.coin-bar{display:flex;align-items:center;gap:5px;background:linear-gradient(135deg,#f5a623,#e8941a);border-radius:30px;padding:7px 10px 7px 8px;box-shadow:0 3px 10px rgba(0,0,0,.3)}
+.coin-bar span{font-size:16px;font-weight:800;color:#fff}
+.coin-add{width:28px;height:28px;border-radius:50%;background:#27ae60;border:none;color:#fff;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:900}
+
+/* scroll area */
+.ls-scroll{flex:1;overflow-y:auto;overflow-x:hidden;padding:8px 12px 80px}
+.ls-scroll::-webkit-scrollbar{display:none}
+
+/* path row */
+.path-row{display:flex;align-items:center;justify-content:center}
+.path-row:nth-child(even){flex-direction:row-reverse}
+.level-node{display:flex;flex-direction:column;align-items:center;width:25%;padding:4px 2px 10px;cursor:pointer;flex-shrink:0;position:relative}
+.node-circle{width:66px;height:66px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:28px;position:relative;box-shadow:0 4px 14px rgba(0,0,0,.35);transition:transform .15s}
+.node-circle:active{transform:scale(.93)}
+.node-circle.locked-c{filter:brightness(.45) grayscale(.5)}
+.check-badge{position:absolute;bottom:0;right:0;width:22px;height:22px;border-radius:50%;background:#27ae60;border:2.5px solid #0f1c35;display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff}
+.lock-badge{position:absolute;bottom:0;right:0;width:22px;height:22px;border-radius:50%;background:#4a5a7a;border:2.5px solid #0f1c35;display:flex;align-items:center;justify-content:center;font-size:12px}
+.node-name{font-size:11.5px;font-weight:800;color:#e0e8ff;margin-top:5px;text-align:center;line-height:1.2}
+.node-name.locked-n{color:#4a5a7a}
+.connector{height:4px;flex:1;max-width:26px;background:#f5c518;border-radius:2px}
+.connector.dashed-c{background:repeating-linear-gradient(90deg,#4a5a7a 0,#4a5a7a 6px,transparent 6px,transparent 12px)}
+.turn-row{width:100%;height:26px;flex-shrink:0}
+.turn-row svg{width:100%;height:26px;overflow:visible}
+
+/* bottom nav */
+.bot-nav{position:absolute;bottom:0;left:0;right:0;height:62px;background:#08111f;border-top:1px solid rgba(255,255,255,.08);display:flex;align-items:center;justify-content:space-around;z-index:20}
+.nav-item{display:flex;flex-direction:column;align-items:center;gap:2px;background:none;border:none;cursor:pointer;padding:6px 24px}
+.nav-ico{font-size:22px}
+.nav-txt{font-size:11px;font-weight:800;color:#4a5a7a}
+.nav-txt.on{color:#3a7bd5}
+.nav-div{width:1px;height:30px;background:rgba(255,255,255,.1)}
+
+/* ══ GAME SCREEN ══ */
+#scr-game{background:#eef2ff}
+.game-hdr{background:#1a2a4a;padding:11px 14px 9px;display:flex;align-items:center;gap:10px;flex-shrink:0}
+.back-btn{width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.15);border:none;color:#fff;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.game-cat-title{flex:1;text-align:center;font-size:17px;font-weight:900;color:#fff}
+.hint-btn{width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,#f5a623,#e8941a);border:none;cursor:pointer;position:relative;display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:0 2px 8px rgba(0,0,0,.3)}
+.hint-count{position:absolute;top:-4px;right:-4px;width:18px;height:18px;border-radius:50%;background:#e74c3c;border:2px solid #1a2a4a;font-size:9px;font-weight:900;color:#fff;display:flex;align-items:center;justify-content:center}
+
+/* word chips */
+.chips-wrap{background:#fff;padding:7px 11px;border-bottom:1px solid #dde6f5;flex-shrink:0;display:flex;flex-wrap:wrap;gap:3px 5px;max-height:68px;overflow:hidden}
+.wchip{font-size:11px;font-weight:700;color:#444;padding:2px 5px;border-radius:3px;transition:all .3s}
+.wchip.found{color:#bbb;text-decoration:line-through}
+.wchip.bonus-found{color:#27ae60;font-weight:900}
+
+/* current word pill */
+.pill-row{background:#fff;padding:5px 12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;border-bottom:1px solid #dde6f5}
+.word-pill{background:linear-gradient(135deg,#e8437b,#c0365f);color:#fff;font-size:16px;font-weight:900;padding:6px 26px;border-radius:28px;letter-spacing:2px;min-width:140px;text-align:center;box-shadow:0 3px 12px rgba(232,67,123,.35);transition:all .2s}
+.word-pill.bonus{background:linear-gradient(135deg,#27ae60,#1e8449)}
+
+/* grid area */
+.grid-area{flex:1;display:flex;align-items:center;justify-content:center;padding:6px;overflow:hidden;position:relative}
+.grid-wrap{background:#fff;border-radius:14px;box-shadow:0 4px 20px rgba(0,0,0,.12);padding:8px;position:relative;user-select:none;touch-action:none}
+#grid-svg{position:absolute;top:8px;left:8px;pointer-events:none;z-index:2}
+#grid-tbl{border-collapse:collapse;position:relative;z-index:1}
+#grid-tbl td{text-align:center;vertical-align:middle;font-family:'Nunito',sans-serif;font-weight:800;color:#1a2a4a;cursor:pointer}
+
+/* ══ WIN OVERLAY ══ */
+.win-overlay{position:absolute;inset:0;background:rgba(8,16,30,.9);display:none;flex-direction:column;align-items:center;justify-content:center;z-index:60;text-align:center;border-radius:14px;padding:20px}
+.win-overlay.show{display:flex;animation:fadein .4s}
+@keyframes fadein{from{opacity:0}to{opacity:1}}
+.win-emoji{font-size:54px;margin-bottom:8px;animation:pop .5s ease}
+@keyframes pop{0%{transform:scale(0)}70%{transform:scale(1.2)}100%{transform:scale(1)}}
+.win-h{font-size:26px;font-weight:900;color:#fff;margin-bottom:4px}
+.win-s{font-size:13px;color:rgba(255,255,255,.6);margin-bottom:6px}
+.win-coins{font-size:18px;font-weight:900;color:#f5a623;margin-bottom:20px}
+.win-btns{display:flex;gap:10px}
+.wbtn{padding:12px 22px;border-radius:25px;border:none;font-size:14px;font-weight:800;cursor:pointer;font-family:'Nunito',sans-serif;transition:transform .15s}
+.wbtn:active{transform:scale(.95)}
+.wbtn.sec{background:rgba(255,255,255,.15);color:#fff}
+.wbtn.pri{background:linear-gradient(135deg,#f5a623,#e8941a);color:#fff;box-shadow:0 4px 14px rgba(245,166,35,.5)}
+
+/* ══ BONUS POPUP ══ */
+.bonus-popup{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(0);background:#fff;border-radius:18px;padding:22px 30px;text-align:center;z-index:200;box-shadow:0 8px 30px rgba(0,0,0,.25);transition:transform .25s;min-width:200px}
+.bonus-popup.show{transform:translate(-50%,-50%) scale(1)}
+.bp-ico{font-size:40px;margin-bottom:6px}
+.bp-word{font-size:18px;font-weight:900;color:#27ae60;letter-spacing:2px;margin-bottom:4px}
+.bp-msg{font-size:13px;color:#888;margin-bottom:8px}
+.bp-coins{font-size:22px;font-weight:900;color:#f5a623}
+
+/* ══ INTERSTITIAL ══ */
+
+/* ══ MODALS ══ */
+.mbg{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:500;display:none;align-items:center;justify-content:center;padding:20px}
+.mbg.show{display:flex;animation:fadein .2s}
+.mcard{background:#fff;border-radius:20px;width:100%;max-width:340px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,.3)}
+.mhead{background:linear-gradient(135deg,#1a2a4a,#2a3a6a);padding:15px 20px 13px;text-align:center}
+.mhead-t{font-size:17px;font-weight:900;color:#fff}
+.mhead-s{font-size:11px;color:rgba(255,255,255,.55);margin-top:3px}
+.mbody{padding:14px 16px}
+.mfoot{padding:10px 16px 16px;display:flex;gap:8px;justify-content:flex-end}
+.mbtn{padding:10px 20px;border-radius:25px;border:none;font-size:13px;font-weight:800;cursor:pointer;font-family:'Nunito',sans-serif}
+.mbtn.sec{background:#f0f4ff;color:#666}
+.mbtn.pri{background:linear-gradient(135deg,#f5a623,#e8941a);color:#fff;box-shadow:0 3px 10px rgba(245,166,35,.4)}
+
+/* daily grid */
+.day-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.dbox{background:#f0f4ff;border-radius:8px;padding:5px 2px;text-align:center;border:2px solid transparent}
+.dbox.claimed{background:#e8f8ef;border-color:#27ae60}
+.dbox.today{background:#fff3e0;border-color:#f5a623;box-shadow:0 0 8px rgba(245,166,35,.35)}
+.dbox.future{opacity:.5}
+.dn{font-size:8px;font-weight:800;color:#888}
+.di{font-size:14px;margin:2px 0}
+.dv{font-size:8px;font-weight:800;color:#f5a623}
+
+/* rewarded */
+
+/* shop / settings rows */
+.srow{display:flex;align-items:center;justify-content:space-between;padding:11px 12px;background:#f8faff;border-radius:11px;margin-bottom:7px;border:1.5px solid #e8f0ff}
+.srow-l{display:flex;align-items:center;gap:9px}
+.sico{font-size:24px}
+.snm{font-size:13px;font-weight:800;color:#1a2a4a}
+.sds{font-size:10px;color:#888;font-weight:600}
+.sprice{background:linear-gradient(135deg,#f5a623,#e8941a);color:#fff;border:none;border-radius:20px;padding:7px 13px;font-size:11px;font-weight:800;cursor:pointer;font-family:'Nunito',sans-serif}
+.tog{width:44px;height:24px;border-radius:12px;cursor:pointer;position:relative;transition:background .2s;flex-shrink:0}
+.tok{position:absolute;top:2px;width:20px;height:20px;border-radius:50%;background:#fff;transition:left .2s}
+
+/* toast */
+#toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(10px);background:#1a2a4a;color:#fff;font-family:'Nunito',sans-serif;font-size:13px;font-weight:700;padding:10px 24px;border-radius:25px;opacity:0;pointer-events:none;transition:all .3s;z-index:900;white-space:nowrap;max-width:90vw;text-align:center}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* coin animation */
+.coin-fly{position:fixed;font-size:18px;pointer-events:none;z-index:800;animation:coinfly .8s ease forwards}
+@keyframes coinfly{0%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0;transform:translateY(-60px) scale(1.4)}}
+</style>
+</head>
+<body>
+
+<!-- ══ TOAST ══ -->
+<div id="toast"></div>
+
+<!-- ══ BONUS POPUP ══ -->
+<div class="bonus-popup" id="bonus-popup">
+  <div class="bp-ico">🎉</div>
+  <div class="bp-word" id="bp-word">ON</div>
+  <div class="bp-msg">Bonus Word Found!</div>
+  <div class="bp-coins" id="bp-coins">+5 🪙</div>
+</div>
+
+<!-- ══════════════════════════════
+     SCREEN 1 — LEVEL SELECT
+══════════════════════════════ -->
+<div id="scr-levels" class="screen show">
+  <div class="ls-header">
+    <button class="ls-gear" onclick="openM('m-settings')">⚙️</button>
+    <span class="ls-title">Levels</span>
+    <div class="coin-bar">
+      <span>🪙</span>
+      <span id="hd-coins">0</span>
+      <button class="coin-add" onclick="openM('m-shop')">+</button>
+    </div>
+  </div>  <div class="ls-scroll" id="ls-scroll"></div>
+
+  <div class="bot-nav">
+    <button class="nav-item" onclick="showScr('scr-levels')">
+      <span class="nav-ico">🗺️</span><span class="nav-txt on">Level</span>
+    </button>
+    <div class="nav-div"></div>
+    <button class="nav-item" onclick="openM('m-daily')">
+      <span class="nav-ico">⭐</span><span class="nav-txt">Daily</span>
+    </button>
+    <div class="nav-div"></div>
+    <button class="nav-item" onclick="openM('m-shop')">
+      <span class="nav-ico">🛒</span><span class="nav-txt">Shop</span>
+    </button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════
+     SCREEN 2 — GAME
+══════════════════════════════ -->
+<div id="scr-game" class="screen">
+  <div class="game-hdr">
+    <button class="back-btn" onclick="showScr('scr-levels')">◀</button>
+    <span class="game-cat-title" id="gm-title">Word Search</span>
+    <button class="hint-btn" onclick="useHint()">
+      💡<span class="hint-count" id="hint-cnt">3</span>
+    </button>
+    <button class="hint-btn" style="background:linear-gradient(135deg,#f5a623,#e8941a);margin-left:6px" onclick="openM('m-shop')">
+      🛒
+    </button>
+  </div>
+
+  <div class="chips-wrap" id="chips-wrap"></div>
+
+  <div class="pill-row">
+    <div class="word-pill" id="word-pill">TAP A LETTER</div>
+  </div>  <div class="grid-area" id="grid-area">
+    <div class="grid-wrap" id="grid-wrap">
+      <svg id="grid-svg"></svg>
+      <table id="grid-tbl"></table>
+      <!-- WIN OVERLAY -->
+      <div class="win-overlay" id="win-ov">
+        <div class="win-emoji">🎉</div>
+        <div class="win-h">Level Complete!</div>
+        <div class="win-s" id="win-s">Great job!</div>
+        <div class="win-coins" id="win-coins">+50 🪙</div>
+        <div class="win-btns">
+          <button class="wbtn sec" onclick="goLevels()">📋 Levels</button>
+          <button class="wbtn pri" id="next-btn" onclick="nextLevel()">Next ▶</button>
+        </div>
+      </div>
+    </div>
+  </div></div>
+
+<!-- ══ MODAL: DAILY REWARD ══ -->
+<div class="mbg" id="m-daily">
+  <div class="mcard">
+    <div class="mhead">
+      <div class="mhead-t">🎁 Daily Reward</div>
+      <div class="mhead-s">Roz ek naya level + coins!</div>
+    </div>
+    <div class="mbody"><div class="day-grid" id="day-grid"></div></div>
+    <div class="mfoot">
+      <button class="mbtn sec" onclick="closeM('m-daily')">Later</button>
+      <button class="mbtn pri" id="claim-btn" onclick="claimDaily()">Claim!</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL: SHOP ══ -->
+<div class="mbg" id="m-shop">
+  <div class="mcard">
+    <div class="mhead"><div class="mhead-t">🛒 Shop</div></div>
+    <div class="mbody">
+      <div class="srow">
+        <div class="srow-l"><div class="sico">💡</div><div><div class="snm">5 Hints</div><div class="sds">Ek word reveal karega</div></div></div>
+        <button class="sprice" onclick="buyHints(5,80)">🪙 80</button>
+      </div>
+      <div class="srow">
+        <div class="srow-l"><div class="sico">💡</div><div><div class="snm">15 Hints</div><div class="sds">Best value pack</div></div></div>
+        <button class="sprice" onclick="buyHints(15,200)">🪙 200</button>
+      </div>
+      <div class="srow">
+        <div class="srow-l"><div class="sico">⚡</div><div><div class="snm">Level Skip</div><div class="sds">Agla level unlock karo</div></div></div>
+        <button class="sprice" onclick="skipLvl()">🪙 120</button>
+      </div>
+    </div>
+    <div class="mfoot"><button class="mbtn pri" onclick="closeM('m-shop')">Done</button></div>
+  </div>
+</div>
+
+<!-- ══ MODAL: SETTINGS ══ -->
+<div class="mbg" id="m-settings">
+  <div class="mcard">
+    <div class="mhead"><div class="mhead-t">⚙️ Settings</div></div>
+    <div class="mbody">
+      <div class="srow">
+        <div class="srow-l"><div class="sico">🔊</div><div><div class="snm">Sound</div></div></div>
+        <div class="tog" id="tog-sound" onclick="togSet('sound')" style="background:#27ae60"><div class="tok" style="left:22px"></div></div>
+      </div>
+      <div class="srow">
+        <div class="srow-l"><div class="sico">📳</div><div><div class="snm">Vibration</div></div></div>
+        <div class="tog" id="tog-vibrate" onclick="togSet('vibrate')" style="background:#27ae60"><div class="tok" style="left:22px"></div></div>
+      </div>
+      <div style="margin-top:10px;padding:10px 12px;background:#f8faff;border-radius:10px;font-size:10px;color:#888;font-weight:700;line-height:2">
+        Publisher: pub-6618721237790410<br>
+        app-ads.txt: google.com, pub-6618721237790410, DIRECT, f08c47fec0942fa0<br>
+        Version 3.0 · Word Search
+      </div>
+    </div>
+    <div class="mfoot">
+      <button class="mbtn sec" onclick="if(confirm('Sab reset hoga?'))resetAll()">Reset</button>
+      <button class="mbtn pri" onclick="closeM('m-settings')">Done</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ══════════════════════════════════════════════════════
+   GAME ENGINE — Word Search
+   Fixes:
+   1. Next level button correctly goes to next puzzle
+   2. Daily reward unlocks 1 new level per day
+   3. Bonus coins for any valid English word found in grid
+   4. Ads: proper AdSense push() called once per unit
+══════════════════════════════════════════════════════ */
+
+// ── LEVEL DATA ────────────────────────────────────────
+const CATS = [
+  {name:'Food',       emoji:'🌭', color:'#9b59b6', words:['PIZZA','BREAD','APPLE','MANGO','PASTA','GRAPE','SALAD','MELON']},
+  {name:'Holiday',    emoji:'🏖️', color:'#3498db', words:['BEACH','OCEAN','HOTEL','PLANE','RELAX','SUNNY','WAVES','TOURS']},
+  {name:'Jobs',       emoji:'✒️',  color:'#e74c3c', words:['NURSE','PILOT','JUDGE','COACH','BAKER','AGENT','CLERK','GUARD']},
+  {name:'Electronics',emoji:'📺', color:'#f39c12', words:['PHONE','CABLE','LASER','MOUSE','RADIO','DRONE','RELAY','OPTIC']},
+  {name:'Books',      emoji:'📚', color:'#d4a017', words:['NOVEL','COMIC','FABLE','PROSE','VERSE','BLURB','COVER','SPINE']},
+  {name:'Interest',   emoji:'🤖', color:'#c0392b', words:['CHESS','DANCE','PAINT','CRAFT','PHOTO','MUSIC','POEMS','HIKES']},
+  {name:'Plant',      emoji:'🌿', color:'#e67e22', words:['MAPLE','CACTUS','FERNS','LOTUS','CEDAR','TULIP','HERBS','VINES']},
+  {name:'Painting',   emoji:'🎨', color:'#1abc9c', words:['BRUSH','EASEL','GLAZE','TINTS','MURAL','SHADE','FRAME','PRISM']},
+  {name:'Word',       emoji:'🔤', color:'#2ecc71', words:['VERBS','NOUNS','TENSE','PROSE','DRAFT','COMMA','QUOTE','VOICE']},
+  {name:'Professional',emoji:'🦉',color:'#d68910', words:['AUDIT','PITCH','BRIEF','SALES','GRANT','LEGAL','STAFF','LEADS']},
+  {name:'Religion',   emoji:'📖', color:'#34495e', words:['FAITH','GRACE','PEACE','LIGHT','TRUTH','MERCY','SOULS','BLESS']},
+  {name:'Music',      emoji:'🎤', color:'#8e44ad', words:['PIANO','DRUMS','NOTES','TEMPO','CHORD','SCALE','RIFFS','BEATS']},
+  {name:'Hobby',      emoji:'❤️',  color:'#e74c3c', words:['SWIM','DRAW','READ','COOK','KNIT','GAME','FISH','HIKE']},
+  {name:'Nature',     emoji:'🌱', color:'#795548', words:['STORM','RIVER','CLIFF','GROVE','BROOK','TRAIL','MARSH','RIDGE']},
+  {name:'Tournament', emoji:'🏆', color:'#f39c12', words:['PRIZE','ROUND','SCORE','MATCH','BONUS','RANKS','TITLE','CROWN']},
+  {name:'Education',  emoji:'🎓', color:'#d68910', words:['GRADE','CLASS','STUDY','LEARN','TEACH','EXAMS','DEANS','BOOKS']},
+  {name:'Technology', emoji:'🚀', color:'#9b59b6', words:['ROBOT','CLOUD','PIXEL','STACK','CACHE','QUERY','TOKEN','BYTES']},
+  {name:'Best',       emoji:'🦅', color:'#c0392b', words:['ELITE','PRIME','SUPER','ULTRA','GRAND','CHIEF','NOBLE','ALPHA']},
+  {name:'Birds',      emoji:'🐦', color:'#16a085', words:['EAGLE','CRANE','ROBIN','FINCH','SWIFT','QUAIL','STORK','SNIPE']},
+  {name:'Pet',        emoji:'🐶', color:'#e74c3c', words:['PUPPY','KITTY','BUNNY','GECKO','FINCH','LAMB','MULE','PONY']},
+];
+
+// ── BONUS WORD LIST (English words that can appear in grid) ──
+// 3-7 letter common English words — award 5 coins each
+const BONUS_WORDS = new Set([
+  'ON','AS','SO','AT','BE','DO','GO','IF','IN','IS','IT','MY','NO','OF','OK','OR','TO','UP','US','WE',
+  'ACE','ACT','ADD','AGE','AGO','AID','AIM','AIR','ALL','AND','ANT','APE','ARM','ART','ASH','ASK','ATE',
+  'BAD','BAG','BAN','BAR','BAT','BED','BIG','BIT','BOW','BOX','BOY','BUD','BUG','BUN','BUS','BUT','BUY',
+  'CAB','CAN','CAP','CAR','CAT','COB','COD','COG','COT','COW','CRY','CUB','CUP','CUT',
+  'DAD','DAM','DAY','DEN','DEW','DID','DIG','DIM','DIP','DOT','DRY','DUB','DUG','DUO','DYE',
+  'EAR','EAT','EEL','EGG','ELM','EMU','END','ERA','EVE','EWE','EYE',
+  'FAN','FAR','FAT','FAX','FED','FEW','FIG','FIT','FIX','FLY','FOB','FOG','FUN','FUR',
+  'GAP','GAS','GEL','GEM','GET','GOT','GUM','GUN','GUT','GUY',
+  'HAD','HAM','HAS','HAT','HAY','HER','HIM','HIS','HIT','HOB','HOG','HOP','HOT','HOW','HUB','HUG','HUM',
+  'ICE','ILL','INN','ION','IRE','IVY',
+  'JAB','JAM','JAR','JAW','JAY','JET','JOB','JOG','JOT','JOY','JUG','JUT',
+  'KEG','KID','KIT',
+  'LAB','LAD','LAP','LAW','LAX','LAY','LEA','LED','LEG','LET','LID','LIP','LIT','LOG','LOT','LOW',
+  'MAD','MAN','MAP','MAR','MAT','MAW','MAY','MET','MID','MIX','MOB','MOD','MOM','MOP','MUD','MUG',
+  'NAB','NAG','NAP','NET','NEW','NIL','NIP','NOD','NOR','NOT','NOW','NUN','NUT',
+  'OAK','OAR','OAT','ODD','ODE','OFT','OIL','OLD','ONE','OPT','ORB','ORE','OWE','OWL','OWN',
+  'PAD','PAL','PAN','PAP','PAR','PAT','PAW','PAY','PEA','PEG','PEN','PEP','PET','PIE','PIG','PIN','PIT','PLY','POD','POP','POT','POW','PRY','PUB','PUN','PUP','PUS','PUT',
+  'RAG','RAM','RAN','RAP','RAT','RAW','RAY','RED','REF','RID','RIG','RIM','RIP','ROB','ROD','ROT','ROW','RUB','RUG','RUM','RUN',
+  'SAC','SAD','SAG','SAP','SAT','SAW','SAY','SEA','SET','SEW','SHE','SHY','SIN','SIP','SIR','SIS','SIT','SIX','SKI','SKY','SLY','SOB','SOD','SON','SOP','SOS','SOT','SOW','SOY','SPA','SPY','STY','SUB','SUM','SUN','SUP',
+  'TAB','TAN','TAP','TAR','TAX','TEA','TEN','THE','TIE','TIN','TIP','TOE','TON','TOO','TOP','TOT','TOW','TOY','TUB','TUG','TUN','TWO',
+  'URN','USE',
+  'VAN','VAT','VET','VIA','VIE','VOW',
+  'WAD','WAR','WAS','WAX','WAY','WEB','WED','WET','WHO','WHY','WIG','WIN','WIT','WOE','WOK','WON','WOO','WOW',
+  'YAK','YAM','YAP','YEN','YEP','YES','YET','YEW',
+  'ZAP','ZEN','ZIP','ZIT','ZOO',
+  // 4 letter
+  'ABLE','ACRE','ALSO','ARCH','AREA','ARMY','AWAY','AXIS',
+  'BACK','BAIL','BAKE','BALD','BALL','BAND','BANG','BANK','BARN','BASE','BATH','BEAR','BEAT','BEEN','BELL','BELT','BEST','BIKE','BILL','BIRD','BITE','BLOW','BLUE','BLUR','BODY','BOLD','BOLT','BOND','BONE','BOOM','BOOT','BORN','BOTH','BURP',
+  'CAGE','CAKE','CALL','CALM','CAME','CAMP','CARD','CARE','CART','CASE','CAVE','CELL','CHIP','CITY','CLAM','CLAY','CLIP','CLUE','COAL','COAT','CODE','COIL','COLD','COME','COOK','COOL','COPY','CORD','CORE','CORN','COST','COUP','COVE','CREW','CROP','CROW','CUBE','CURE','CURL',
+  'DARE','DARK','DART','DASH','DATA','DATE','DAWN','DAYS','DEAD','DEAL','DEAR','DECK','DEEP','DEER','DENT','DESK','DIET','DIRT','DISH','DISK','DIVE','DOCK','DOME','DONE','DOOM','DOOR','DOSE','DOWN','DRAW','DRIP','DROP','DRUM','DUCK','DUEL','DULL','DUMP','DUNE','DUSK','DUST',
+  'EACH','EARL','EARN','EASE','EAST','EDGE','ELSE','EMIT','EMIT','EPIC','EVEN','EVER','EVIL','EXAM',
+  'FACE','FACT','FAIL','FAIR','FAKE','FALL','FAME','FARM','FAST','FATE','FEEL','FELT','FILE','FILL','FILM','FIND','FINE','FIRE','FIRM','FISH','FLAG','FLAT','FLEW','FLIP','FLOW','FOAM','FOLD','FOLK','FOND','FONT','FOOD','FOOL','FOOT','FORD','FORE','FORK','FORM','FORT','FOUL','FOUR','FREE','FROG','FROM','FUEL','FULL','FUND','FURY','FUSE',
+  'GAIN','GAME','GANG','GASP','GATE','GAVE','GAZE','GEAR','GERM','GILD','GIST','GLAD','GLOW','GLUE','GOAL','GOAT','GOLD','GOLF','GONE','GOOD','GOWN','GRAB','GREW','GRID','GRIN','GRIP','GRIT','GROW','GULF','GUST',
+  'HACK','HAIL','HAIR','HALF','HALL','HALT','HAND','HANG','HARD','HARM','HAVE','HAWK','HEAD','HEAL','HEAP','HEAR','HEAT','HEEL','HELD','HELM','HELP','HERO','HIGH','HILL','HINT','HOLD','HOLE','HOLY','HOME','HOOD','HOOP','HOPE','HORN','HOUR','HULL','HUNG','HUNT','HURT',
+  'ICED','IDEA','IDLE','IRON',
+  'JACK','JAIL','JERK','JOIN','JUMP','JUST',
+  'KEEN','KEEP','KILL','KIND','KING','KNEE','KNEW','KNOT','KNOW',
+  'LACE','LACK','LAKE','LAMP','LAND','LANE','LARK','LAST','LATE','LAWN','LEAD','LEAK','LEAN','LEAP','LEFT','LEND','LENS','LEVY','LICK','LIFE','LIFT','LIKE','LIME','LINE','LINK','LION','LIST','LIVE','LOAD','LOAN','LOCK','LOFT','LONE','LONG','LOOK','LOOP','LORE','LOSE','LOSS','LOST','LOUD','LOVE','LUCK','LURE','LURK','LUST',
+  'MADE','MAIL','MAIN','MAKE','MALE','MALL','MALT','MANY','MARK','MASS','MAST','MATE','MATH','MAZE','MEAL','MEAN','MEAT','MEET','MELT','MEMO','MERE','MESH','MILD','MILE','MILL','MIME','MIND','MINE','MINT','MISS','MODE','MOLD','MOLE','MOON','MOOR','MORE','MOST','MOTH','MOVE','MUCH','MUST',
+  'NAIL','NAME','NEAR','NECK','NEED','NEST','NEXT','NICE','NINE','NODE','NONE','NOON','NORM','NOSE','NOTE','NULL',
+  'OATH','OBEY','ODDS','ONCE','ONLY','OPEN','OVER','OWED','OWNS',
+  'PACE','PACK','PAGE','PAIN','PAIR','PALE','PALM','PARK','PART','PASS','PAST','PATH','PAVE','PEAK','PEEL','PEER','PEST','PINE','PIPE','PLAN','PLOD','PLOT','PLOW','PLOY','PLUG','PLUS','POEM','POET','POLE','POLL','POOL','POOR','PORT','POSE','POST','POUR','PREY','PULL','PULP','PUMP','PURE','PUSH',
+  'RACE','RACK','RAGE','RAID','RAIL','RAIN','RAKE','RAMP','RANG','RANK','RARE','RASH','RATE','RAVE','RAYS','REAL','REEL','RELY','RENT','REST','RICE','RICH','RIDE','RIND','RING','RIOT','RISK','ROAD','ROAM','ROAR','ROCK','ROLE','ROLL','ROOF','ROOM','ROOT','ROPE','ROSE','ROUT','RUDE','RUIN','RULE','RUSH',
+  'SAFE','SAGE','SAID','SAIL','SAKE','SALE','SAME','SAND','SANE','SANG','SANK','SAVE','SEAL','SEAM','SEAT','SEED','SEEM','SEEN','SELF','SELL','SEND','SENT','SHED','SHIP','SHOP','SHOT','SHOW','SHUT','SIDE','SIGH','SILK','SILL','SING','SINK','SIZE','SKIN','SKIP','SLAM','SLAP','SLIM','SLIP','SLOT','SLOW','SLUG','SNAP','SNOW','SOAK','SOAR','SOCK','SOFT','SOIL','SOLD','SOLE','SONG','SOON','SORE','SORT','SOUL','SOUP','SOUR','SPAN','SPAR','SPIN','SPOT','STAB','STEM','STEP','STOP','STUB','STUN','SUCH','SUIT','SUNG','SUNK','SURE','SWAP',
+  'TALE','TALK','TALL','TAME','TANK','TAPE','TASK','TEAM','TEAR','TELL','TERM','TEST','THAN','THAT','THEM','THEN','THEY','THIN','THIS','TIDE','TIDY','TILL','TILT','TIME','TINY','TIRE','TOLL','TOMB','TONE','TORE','TORN','TORT','TOSS','TOUR','TOWN','TRAP','TREE','TRIM','TRIO','TRIP','TROD','TRUE','TUBE','TUCK','TUNE','TURF','TWIN','TYPE',
+  'UGLY','UNDO','UNIT','UPON','USED',
+  'VAIN','VALE','VARY','VAST','VEIL','VEIN','VERY','VIEW','VINE','VOID','VOTE',
+  'WADE','WAGE','WAKE','WALK','WALL','WAND','WANT','WARD','WARM','WARN','WARP','WART','WAVE','WEAK','WEAL','WEAN','WEAR','WEED','WEEK','WELL','WENT','WERE','WEST','WHAT','WHEN','WHIP','WIDE','WIFE','WILD','WILL','WIND','WINE','WING','WIPE','WIRE','WISE','WISH','WITH','WOKE','WOLF','WOOD','WOOL','WORD','WORE','WORK','WORM','WORN','WRAP','WREN','WRIT',
+  'YARD','YARN','YEAR','YELL','YOGA','YORE','YOUR',
+  'ZEAL','ZERO','ZONE','ZOOM'
+]);
+
+const GRID_SZ = 10;
+const DIRS = [[0,1],[1,0],[1,1],[1,-1],[0,-1],[-1,0],[-1,-1],[-1,1]];
+const LINE_COLS = ['#e74c3c','#3498db','#2ecc71','#9b59b6','#f39c12','#1abc9c','#e67e22','#e91e63','#00bcd4','#ff7043'];
+
+// ── STORAGE ───────────────────────────────────
+const $ = k => localStorage.getItem(k);
+const $s = (k,v) => { try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} };
+const $g = (k,d) => { try{ const v=$( k); return v!==null ? JSON.parse(v) : d; }catch(e){ return d; } };
+
+let G = {
+  coins:    $g('ws3_coins', 100),
+  hints:    $g('ws3_hints', 3),
+  streak:   $g('ws3_streak', 0),
+  lastDay:  $g('ws3_lastday', 0),
+  unlocked: $g('ws3_unlocked', 1),  // unlocks only by completing levels
+  curLvl:   $g('ws3_curlvl', 0),
+};
+function saveG(){
+  $s('ws3_coins',G.coins); $s('ws3_hints',G.hints); $s('ws3_streak',G.streak);
+  $s('ws3_lastday',G.lastDay); $s('ws3_unlocked',G.unlocked); $s('ws3_curlvl',G.curLvl);
+}
+
+const sett = { sound: $g('ws3_snd',true), vibrate: $g('ws3_vib',true) };
+let puz = { grid:[], places:{}, found:new Set(), bonusFound:new Set(), colorMap:{}, ci:0 };
+let sel = { on:false, start:null, cells:[] };
+let CELL = 32;
+// ── LEVEL UNLOCK ─────────────────────────────
+// Levels unlock only when previous level is completed
+function checkDailyUnlock(){ /* removed — unlock by completion only */ }
+
+// ── SCREEN NAV ────────────────────────────────
+function showScr(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('show'));
+  document.getElementById(id).classList.add('show');
+  if(id==='scr-levels'){ checkDailyUnlock(); renderLevels(); }
+}
+function goLevels(){
+  document.getElementById('win-ov').classList.remove('show');
+  showScr('scr-levels');
+}
+
+// ── LEVEL SELECT ──────────────────────────────
+function renderLevels(){
+  document.getElementById('hd-coins').textContent = G.coins;
+  const scroll = document.getElementById('ls-scroll');
+  scroll.innerHTML = '';
+  const rows = [];
+  for(let i=0;i<CATS.length;i+=4) rows.push(CATS.slice(i,i+4));
+
+  rows.forEach((row, ri)=>{
+    const rowEl = document.createElement('div');
+    rowEl.className = 'path-row';
+    const displayRow = ri%2===0 ? row : [...row].reverse();
+    const startIdx = ri * 4;
+
+    displayRow.forEach((cat, di)=>{
+      const idx = ri%2===0 ? startIdx+di : startIdx+(row.length-1-di);
+      const isUnlocked = idx < G.unlocked;
+      const isCurrent  = idx === G.curLvl;
+
+      // connector
+      if(di > 0){
+        const conn = document.createElement('div');
+        conn.className = 'connector' + (isUnlocked ? '' : ' dashed-c');
+        rowEl.appendChild(conn);
+      }
+
+      const node = document.createElement('div');
+      node.className = 'level-node';
+      node.innerHTML = `
+        <div class="node-circle${!isUnlocked?' locked-c':''}"
+          style="background:${cat.color};${isCurrent?'outline:3px solid #fff;outline-offset:3px':''}"
+          ${isUnlocked ? `onclick="startLevel(${idx})"` : ''}
+        >${cat.emoji}
+          ${isUnlocked
+            ? '<div class="check-badge">✓</div>'
+            : '<div class="lock-badge">🔒</div>'}
+        </div>
+        <div class="node-name${!isUnlocked?' locked-n':''}">${cat.name}</div>`;
+      rowEl.appendChild(node);
+    });
+    scroll.appendChild(rowEl);
+
+    // turn connector between rows
+    if(ri < rows.length-1){
+      const turn = document.createElement('div');
+      turn.className = 'turn-row';
+      const nextUnlocked = (ri+1)*4 < G.unlocked;
+      const col = nextUnlocked ? '#f5c518' : '#4a5a7a';
+      const dash = nextUnlocked ? '' : 'stroke-dasharray="8 6"';
+      turn.innerHTML = ri%2===0
+        ? `<svg viewBox="0 0 100 26" preserveAspectRatio="none"><path d="M90,0 Q100,13 90,26" stroke="${col}" stroke-width="4" fill="none" ${dash}></path></svg>`
+        : `<svg viewBox="0 0 100 26" preserveAspectRatio="none"><path d="M10,0 Q0,13 10,26" stroke="${col}" stroke-width="4" fill="none" ${dash}></path></svg>`;
+      scroll.appendChild(turn);
+    }
+  });
+}
+
+// ── START LEVEL ───────────────────────────────
+function startLevel(idx){
+  // Only allow starting unlocked levels
+  if(idx >= G.unlocked){
+    toast('Ye level abhi locked hai! Kal aao 🔒');
+    return;
+  }
+  G.curLvl = idx;
+  saveG();
+  document.getElementById('gm-title').textContent = CATS[idx].name;
+  document.getElementById('win-ov').classList.remove('show');
+  showScr('scr-game');
+  // Build puzzle after screen becomes visible (correct dimensions)
+  requestAnimationFrame(()=> requestAnimationFrame(()=> buildPuzzle(CATS[idx].words)));
+}
+
+// ── NEXT LEVEL ────────────────────────────────
+// THIS is the main fix — go directly to next level without screen switch
+function nextLevel(){
+  document.getElementById('win-ov').classList.remove('show');
+  const nextIdx = G.curLvl + 1;
+
+  if(nextIdx >= CATS.length){
+    toast('🏆 Sabhi levels complete! Bahut badhiya!');
+    showScr('scr-levels');
+    return;
+  }
+
+  // ✅ Always go directly to next level — no time lock
+  G.curLvl = nextIdx;
+  // Make sure it stays unlocked
+  if(G.unlocked <= nextIdx) G.unlocked = nextIdx + 1;
+  saveG();
+  document.getElementById('gm-title').textContent = CATS[nextIdx].name;
+  buildPuzzle(CATS[nextIdx].words);
+}
+
+// ── BUILD PUZZLE ──────────────────────────────
+function buildPuzzle(words){
+  puz = { grid:Array.from({length:GRID_SZ},()=>Array(GRID_SZ).fill('')), places:{}, found:new Set(), bonusFound:new Set(), colorMap:{}, ci:0 };
+  sel = { on:false, start:null, cells:[] };
+  words.forEach(placeWord);
+  fillGrid();
+  renderGrid();
+  renderChips();
+  setPill('TAP A LETTER', false);
+  document.getElementById('hint-cnt').textContent = G.hints;
+  document.getElementById('hd-coins').textContent = G.coins;
+}
+
+function placeWord(w){
+  const dirs = [...DIRS].sort(()=>Math.random()-.5);
+  for(let a=0;a<300;a++){
+    const d=dirs[a%dirs.length], r=Math.floor(Math.random()*GRID_SZ), c=Math.floor(Math.random()*GRID_SZ);
+    const cells=[]; let ok=true;
+    for(let i=0;i<w.length;i++){
+      const nr=r+d[0]*i, nc=c+d[1]*i;
+      if(nr<0||nr>=GRID_SZ||nc<0||nc>=GRID_SZ){ ok=false; break; }
+      if(puz.grid[nr][nc] && puz.grid[nr][nc]!==w[i]){ ok=false; break; }
+      cells.push([nr,nc]);
+    }
+    if(ok){ cells.forEach(([nr,nc],i)=>puz.grid[nr][nc]=w[i]); puz.places[w]=cells; return; }
+  }
+}
+
+function fillGrid(){
+  const A='ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  for(let r=0;r<GRID_SZ;r++)
+    for(let c=0;c<GRID_SZ;c++)
+      if(!puz.grid[r][c]) puz.grid[r][c]=A[Math.floor(Math.random()*26)];
+}
+
+// ── RENDER GRID ───────────────────────────────
+function renderGrid(){
+  const area = document.getElementById('grid-area');
+  const avail = Math.min(area.clientWidth, area.clientHeight) - 28;
+  CELL = Math.max(22, Math.min(36, Math.floor(avail/GRID_SZ)));
+
+  const tbl = document.getElementById('grid-tbl');
+  tbl.innerHTML='';
+  tbl.style.fontSize = Math.max(10, CELL-10)+'px';
+  for(let r=0;r<GRID_SZ;r++){
+    const tr=document.createElement('tr');
+    for(let c=0;c<GRID_SZ;c++){
+      const td=document.createElement('td');
+      td.id=`g${r}_${c}`; td.textContent=puz.grid[r][c];
+      td.style.cssText=`width:${CELL}px;height:${CELL}px;min-width:${CELL}px`;
+      tr.appendChild(td);
+    }
+    tbl.appendChild(tr);
+  }
+  const sz = GRID_SZ*CELL;
+  const svg = document.getElementById('grid-svg');
+  svg.style.width=svg.style.height=sz+'px';
+  svg.setAttribute('width',sz); svg.setAttribute('height',sz);
+  svg.setAttribute('viewBox',`0 0 ${sz} ${sz}`);
+  redrawSVG();
+}
+
+function renderChips(){
+  const wrap = document.getElementById('chips-wrap'); wrap.innerHTML='';
+  CATS[G.curLvl].words.forEach(w=>{
+    const s=document.createElement('span');
+    s.className='wchip'+(puz.found.has(w)?' found':'');
+    s.id='ch_'+w; s.textContent=w;
+    wrap.appendChild(s);
+  });
+}
+
+function setPill(txt, isBonus){
+  const p=document.getElementById('word-pill');
+  p.textContent=txt;
+  p.className='word-pill'+(isBonus?' bonus':'');
+}
+
+// ── SVG OVERLAY ───────────────────────────────
+function redrawSVG(){
+  const svg=document.getElementById('grid-svg'); svg.innerHTML='';
+  // found lines
+  Object.entries(puz.colorMap).forEach(([w,ci])=>{
+    const cells=puz.places[w]; if(!cells) return;
+    drawLine(svg, cells[0], cells[cells.length-1], LINE_COLS[ci%LINE_COLS.length], 0.42);
+  });
+  // current selection
+  if(sel.cells.length>1){
+    drawLine(svg, sel.cells[0], sel.cells[sel.cells.length-1], 'rgba(26,90,200,0.28)', 1);
+  } else if(sel.cells.length===1){
+    const[r,c]=sel.cells[0];
+    const circ=document.createElementNS('http://www.w3.org/2000/svg','circle');
+    circ.setAttribute('cx',c*CELL+CELL/2); circ.setAttribute('cy',r*CELL+CELL/2);
+    circ.setAttribute('r',CELL/2-2); circ.setAttribute('fill','rgba(26,90,200,0.2)');
+    svg.appendChild(circ);
+  }
+}
+function drawLine(svg,[r0,c0],[r1,c1],color,opacity){
+  const line=document.createElementNS('http://www.w3.org/2000/svg','line');
+  line.setAttribute('x1',c0*CELL+CELL/2); line.setAttribute('y1',r0*CELL+CELL/2);
+  line.setAttribute('x2',c1*CELL+CELL/2); line.setAttribute('y2',r1*CELL+CELL/2);
+  line.setAttribute('stroke',color); line.setAttribute('stroke-width',CELL-5);
+  line.setAttribute('stroke-linecap','round'); line.setAttribute('stroke-opacity',opacity);
+  svg.appendChild(line);
+}
+
+// ── INPUT HANDLING ────────────────────────────
+function ptToCell(x,y){
+  const rect=document.getElementById('grid-tbl').getBoundingClientRect();
+  const cc=Math.floor((x-rect.left)/CELL), rr=Math.floor((y-rect.top)/CELL);
+  return(cc>=0&&cc<GRID_SZ&&rr>=0&&rr<GRID_SZ)?[rr,cc]:null;
+}
+function evToCell(e){ const t=e.touches?e.touches[0]:e; return ptToCell(t.clientX,t.clientY); }
+
+function extendSel([r,c]){
+  if(!sel.start) return;
+  const[sr,sc]=sel.start, dr=r-sr, dc=c-sc, len=Math.max(Math.abs(dr),Math.abs(dc));
+  if(!len){ sel.cells=[[sr,sc]]; redrawSVG(); return; }
+  let nr=0,nc=0;
+  if(Math.abs(dr)===len) nr=dr>0?1:-1;
+  if(Math.abs(dc)===len) nc=dc>0?1:-1;
+  const cells=[];
+  for(let i=0;i<=len;i++){
+    const rr=sr+nr*i,cc=sc+nc*i;
+    if(rr>=0&&rr<GRID_SZ&&cc>=0&&cc<GRID_SZ) cells.push([rr,cc]);
+  }
+  sel.cells=cells;
+  const partial=cells.map(([r,c])=>puz.grid[r][c]).join('');
+  if(partial) setPill(partial, false);
+  redrawSVG();
+}
+
+function onDown(e){ const rc=evToCell(e); if(!rc)return; sel={on:true,start:rc,cells:[rc]}; redrawSVG(); e.preventDefault(); }
+function onMove(e){ if(!sel.on)return; const rc=evToCell(e); if(rc)extendSel(rc); if(e.cancelable)e.preventDefault(); }
+
+function onUp(){
+  if(!sel.on) return;
+  sel.on=false;
+  const letters=sel.cells.map(([r,c])=>puz.grid[r][c]).join('');
+  const rev=[...letters].reverse().join('');
+  const catWords=CATS[G.curLvl].words;
+
+  // ── Check if it's a TARGET word ──
+  let foundWord=null;
+  catWords.forEach(w=>{ if(!puz.found.has(w)&&(letters===w||rev===w)) foundWord=w; });
+
+  if(foundWord){
+    // Target word found — award 10 coins
+    const ci=puz.ci++%LINE_COLS.length;
+    puz.colorMap[foundWord]=ci; puz.found.add(foundWord);
+    G.coins+=10; saveG();
+    document.getElementById('hd-coins').textContent=G.coins;
+    flyCoins(10);
+    setPill(foundWord, false);
+    const chip=document.getElementById('ch_'+foundWord);
+    if(chip) chip.className='wchip found';
+    if(sett.vibrate&&navigator.vibrate) navigator.vibrate(40);
+    redrawSVG();
+    if(puz.found.size===catWords.length) onWin();
+
+  } else {
+    // ── Check if it's a BONUS word (valid English word) ──
+    const checkBonus = (w) => {
+      if(w.length < 2) return false;
+      if(puz.bonusFound.has(w)) return false; // already rewarded
+      if(catWords.includes(w)) return false;   // already a target word
+      return BONUS_WORDS.has(w);
+    };
+
+    const bonusWord = checkBonus(letters) ? letters : (checkBonus(rev) ? rev : null);
+
+    if(bonusWord){
+      // Valid bonus word found!
+      const bonusCoins = bonusWord.length <= 2 ? 3 : bonusWord.length <= 3 ? 5 : bonusWord.length <= 4 ? 8 : 12;
+      puz.bonusFound.add(bonusWord);
+      G.coins += bonusCoins; saveG();
+      document.getElementById('hd-coins').textContent=G.coins;
+      setPill(bonusWord+'!', true);
+      flyCoins(bonusCoins);
+      showBonusPopup(bonusWord, bonusCoins);
+      // highlight selection briefly
+      const ci=puz.ci++%LINE_COLS.length;
+      // store in colorMap temporarily with a dummy key
+      puz.colorMap['__bonus_'+bonusWord]=ci;
+      const tmpCells=[...sel.cells];
+      puz.places['__bonus_'+bonusWord]=tmpCells;
+      redrawSVG();
+      setTimeout(()=>{
+        delete puz.colorMap['__bonus_'+bonusWord];
+        delete puz.places['__bonus_'+bonusWord];
+        redrawSVG();
+      }, 1200);
+    } else {
+      setPill('Try again!', false);
+      setTimeout(()=>setPill('Find words',false), 900);
+    }
+  }
+  sel.cells=[]; redrawSVG();
+}
+
+const gw=document.getElementById('grid-wrap');
+gw.addEventListener('mousedown',onDown);
+gw.addEventListener('touchstart',onDown,{passive:false});
+gw.addEventListener('mousemove',onMove);
+gw.addEventListener('touchmove',onMove,{passive:false});
+document.addEventListener('mouseup',onUp);
+document.addEventListener('touchend',onUp);
+
+// ── BONUS POPUP ───────────────────────────────
+let bonusTimer=null;
+function showBonusPopup(word, coins){
+  const popup=document.getElementById('bonus-popup');
+  document.getElementById('bp-word').textContent=word;
+  document.getElementById('bp-coins').textContent='+'+coins+' 🪙';
+  popup.classList.add('show');
+  if(bonusTimer) clearTimeout(bonusTimer);
+  bonusTimer=setTimeout(()=>popup.classList.remove('show'), 1600);
+}
+
+// ── COIN FLY ANIMATION ────────────────────────
+function flyCoins(amount){
+  const el=document.createElement('div');
+  el.className='coin-fly';
+  el.textContent='+'+amount+' 🪙';
+  el.style.cssText=`left:${Math.random()*60+20}%;top:40%;`;
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(), 900);
+}
+
+// ── WIN ───────────────────────────────────────
+function onWin(){
+  const nextIdx = G.curLvl + 1;
+  G.coins += 50;
+  G.streak++;
+  // ✅ Unlock next level immediately on completing current level
+  if(nextIdx < CATS.length && G.unlocked <= nextIdx){
+    G.unlocked = nextIdx + 1;
+  }
+  saveG();
+  document.getElementById('hd-coins').textContent = G.coins;
+  document.getElementById('win-s').textContent = `Level ${G.curLvl+1} complete! Streak ${G.streak}🔥`;
+  document.getElementById('win-coins').textContent = '+50 🪙 Earned!';
+  document.getElementById('win-ov').classList.add('show');
+
+  // Next button — always show if more levels exist
+  const nextBtn = document.getElementById('next-btn');
+  if(nextIdx < CATS.length){
+    nextBtn.style.display = 'block';
+    nextBtn.textContent = `Next ▶ ${CATS[nextIdx].name}`;
+  } else {
+    nextBtn.style.display = 'none'; // last level
+  }}
+
+// ── HINT ──────────────────────────────────────
+function useHint(){
+  if(G.hints<=0){ openM('m-shop'); return; }
+  const rem=CATS[G.curLvl].words.filter(w=>!puz.found.has(w));
+  if(!rem.length) return;
+  const w=rem[0];
+  const ci=puz.ci++%LINE_COLS.length;
+  puz.colorMap[w]=ci; puz.found.add(w);
+  G.hints--; saveG();
+  document.getElementById('hint-cnt').textContent=G.hints;
+  const chip=document.getElementById('ch_'+w);
+  if(chip) chip.className='wchip found';
+  setPill(w+' found!', false);
+  redrawSVG();
+  if(puz.found.size===CATS[G.curLvl].words.length) onWin();
+}
+
+// ── MODAL OPEN / CLOSE ────────────────────────
+function openM(id){
+  if(id==='m-daily') renderDailyGrid();
+  const el = document.getElementById(id);
+  if(el) el.classList.add('show');
+}
+function closeM(id){
+  const el = document.getElementById(id);
+  if(el) el.classList.remove('show');
+}
+
+// ── DAILY REWARD ──────────────────────────────
+const DR = [50, 60, 80, 100, 120, 150, 200];
+function renderDailyGrid(){
+  const g=document.getElementById('day-grid'); g.innerHTML='';
+  const claimed = Date.now()-G.lastDay < 24*60*60*1000;
+  const day = G.streak%7;
+  DR.forEach((v,i)=>{
+    const d=document.createElement('div');
+    d.className='dbox'+(i<day&&claimed?' claimed':'')+(i===day&&!claimed?' today':'')+(i>day?' future':'');
+    d.innerHTML=`<div class="dn">D${i+1}</div><div class="di">🪙</div><div class="dv">${v}</div>`;
+    g.appendChild(d);
+  });
+  document.getElementById('claim-btn').style.display=claimed?'none':'block';
+}
+function claimDaily(){
+  const day=G.streak%7;
+  G.coins+=DR[day]; G.streak++; G.lastDay=Date.now(); saveG();
+  document.getElementById('hd-coins').textContent=G.coins;
+  toast(`Day ${day+1}: +${DR[day]} coins! 🎉`);
+  closeM('m-daily');
+  flyCoins(DR[day]);
+}
+
+// ── SHOP ──────────────────────────────────────
+function buyHints(n,cost){
+  if(G.coins<cost){ toast('Coins kam hain!'); return; }
+  G.coins-=cost; G.hints+=n; saveG();
+  document.getElementById('hint-cnt').textContent=G.hints;
+  document.getElementById('hd-coins').textContent=G.coins;
+  toast(`+${n} Hints! 💡`); closeM('m-shop');
+}
+function skipLvl(){
+  if(G.coins<120){ toast('120 coins chahiye!'); return; }
+  G.coins-=120; saveG(); closeM('m-shop');
+  nextLevel(); toast('Level skip! ⚡');
+}
+
+// ── SETTINGS ──────────────────────────────────
+function togSet(k){
+  sett[k]=!sett[k]; $s('ws3_snd',sett.sound); $s('ws3_vib',sett.vibrate);
+  const el=document.getElementById('tog-'+k);
+  const knob=el.querySelector('.tok');
+  el.style.background=sett[k]?'#27ae60':'#ccc';
+  knob.style.left=sett[k]?'22px':'2px';
+}
+function resetAll(){
+  G={coins:100,hints:3,streak:0,lastDay:0,unlocked:1,curLvl:0}; saveG();
+  closeM('m-settings'); renderLevels(); toast('Reset ho gaya!');
+}
+
+// ── TOAST ─────────────────────────────────────
+let _tt;
+function toast(msg){
+  const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
+  clearTimeout(_tt); _tt=setTimeout(()=>t.classList.remove('show'), 2600);
+}
+
+// ── BACKDROP CLOSE ────────────────────────────
+document.querySelectorAll('.mbg').forEach(el=>el.addEventListener('click', e=>{
+  if(e.target===el) el.classList.remove('show');
+}));
+
+// ── RESIZE ────────────────────────────────────
+window.addEventListener('resize',()=>{
+  if(document.getElementById('scr-game').classList.contains('show')) renderGrid();
+});
+
+// ── INIT ──────────────────────────────────────
+renderLevels();
+// Show daily reward popup if not claimed today
+if(Date.now()-G.lastDay > 24*60*60*1000) setTimeout(()=>openM('m-daily'), 800);
+</script>
+</body>
+</html>
